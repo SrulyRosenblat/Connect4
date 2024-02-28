@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:game_app/pages/chat.dart';
+import 'package:game_app/pages/game.dart';
 
 void main() {
   runApp(const MyApp());
@@ -74,7 +75,7 @@ class _MyHomePageState extends State<MyHomePage> {
     Widget selectedPage;
     switch (_selectedIndex) {
       case 0:
-        selectedPage = const Placeholder();
+        selectedPage = const GamePage();
         break;
       case 1:
         selectedPage = const ChatPage();
