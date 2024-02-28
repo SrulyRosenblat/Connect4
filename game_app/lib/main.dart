@@ -1,7 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:game_app/pages/Profile.dart';
+import 'package:game_app/pages/SignIn.dart';
 import 'package:game_app/pages/chat.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    if (user == null) {
+      print('User is currently signed out!');
+    } else {
+      print('User is signed in!');
+    }
+  });
   runApp(const MyApp());
 }
 
@@ -72,6 +88,16 @@ class _MyHomePageState extends State<MyHomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     Widget selectedPage;
+    bool signedIn = false;
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user == null) {
+        signedIn = false;
+        print('User is currently signed out!');
+      } else {
+        signedIn = true;
+        print('User is signed in!');
+      }
+    });
     switch (_selectedIndex) {
       case 0:
         selectedPage = const Placeholder();
@@ -80,7 +106,18 @@ class _MyHomePageState extends State<MyHomePage> {
         selectedPage = const ChatPage();
         break;
       case 2:
-        selectedPage = const Placeholder();
+        selectedPage = StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, snapshot) {
+            // User is not signed in
+            if (!snapshot.hasData) {
+              return SignIn();
+            }
+
+            // Render your application if authenticated
+            return Profile();
+          },
+        );
         break;
       default:
         selectedPage = const Text("ERROR");
