@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:game_app/pages/SignIn.dart';
 import 'package:game_app/pages/chat.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -95,7 +94,7 @@ class _MyHomePageState extends State<MyHomePage> {
         selectedPage = const ChatPage();
         break;
       case 2:
-        selectedPage = const SignIn();
+        selectedPage = const Placeholder();
         break;
       default:
         selectedPage = const Text("ERROR");
