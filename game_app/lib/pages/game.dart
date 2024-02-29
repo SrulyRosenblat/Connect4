@@ -140,7 +140,7 @@ class GamePageState extends State<GamePage> {
       }
     }
 
-    // Check diagonally
+    // Check diagonally both ways
     for (int i = 0; i <= 3; i++) {
       if ((row + i < 6 && col + i < 7) &&
           (row + i - 3 >= 0 && col + i - 3 >= 0) &&
