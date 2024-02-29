@@ -5,6 +5,7 @@ import 'package:game_app/pages/chat.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,14 +13,28 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseAuth.instance.authStateChanges().listen((User? user) {
-    if (user == null) {
-      print('User is currently signed out!');
-    } else {
-      print('User is signed in!');
-    }
-  });
+  if (user != null) {
+    checkOrCreateUserData(user); 
+  }
+});
+
   runApp(const MyApp());
 }
+
+Future<void> checkOrCreateUserData(User user) async {
+  final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+  final doc = await userRef.get();
+  if (!doc.exists) {
+    await userRef.set({
+      'name': user.displayName ?? 'Anonymous', 
+      'score': 0,
+    });
+    print('User data created for ${user.uid}');
+  } else {
+    print('User data exists for ${user.uid}');
+  }
+}
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
