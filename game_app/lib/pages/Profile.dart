@@ -11,21 +11,24 @@ class Profile extends StatefulWidget {
 
 class _ProfileState extends State<Profile> {
   final TextEditingController _usernameController = TextEditingController();
-  String _username = 'Anonymous'; // Default username
+  // Default values
+  String _username = 'Anonymous'; 
+  int _score = 0; 
 
   @override
   void initState() {
     super.initState();
-    _fetchUsername();
+    _fetchUserData();
   }
 
-  Future<void> _fetchUsername() async {
+  Future<void> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final docSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (docSnapshot.exists) {
         setState(() {
           _username = docSnapshot.data()?['name'] ?? 'Anonymous';
+          _score = docSnapshot.data()?['score'] ?? 0;
         });
       }
     }
@@ -40,21 +43,24 @@ class _ProfileState extends State<Profile> {
       setState(() {
         _username = _usernameController.text;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Username updated to ${_usernameController.text}')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    _usernameController.text = _username; // Set the current username in the text field
+    _usernameController.text = _username; 
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text("User ID: ${FirebaseAuth.instance.currentUser!.uid}", textAlign: TextAlign.center),
-          SizedBox(height: 20),
           Text("Username: $_username", textAlign: TextAlign.center),
+          SizedBox(height: 20),
+          Text("Score: $_score", textAlign: TextAlign.center), 
           SizedBox(height: 20),
           TextField(
             controller: _usernameController,
@@ -62,12 +68,7 @@ class _ProfileState extends State<Profile> {
           ),
           SizedBox(height: 20),
           ElevatedButton(
-            onPressed: () async {
-              await _updateUsername();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Username updated to ${_usernameController.text}')),
-              );
-            },
+            onPressed: _updateUsername, 
             child: const Text("Update Username"),
           ),
           ElevatedButton(
