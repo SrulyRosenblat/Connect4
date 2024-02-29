@@ -114,7 +114,6 @@ class GamePageState extends State<GamePage> {
             message = "Player 1's turn";
           });
         }
-
         return;
       }
     }
