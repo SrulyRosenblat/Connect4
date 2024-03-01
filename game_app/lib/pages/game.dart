@@ -22,7 +22,7 @@ class GamePageState extends State<GamePage> {
   FirebaseFirestore firestore = FirebaseFirestore.instance;
   final user = FirebaseAuth.instance.currentUser;
 
-  void updateBoard (boardArray){ //upon change of board in firestore
+  void updateBoard (boardArray){ //upon change of board in firestore 
     int index = 0;
     for (int row = 0; row < 6; row++) {
       for (int col = 0; col < 7; col++) {
