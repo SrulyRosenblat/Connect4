@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
-
+  
   @override
   GamePageState createState() => GamePageState();
 }
@@ -14,6 +16,22 @@ class GamePageState extends State<GamePage> {
   bool gameOver = false;
   String message = "Player 1's turn";
 
+  final TextEditingController gameIdController = TextEditingController();
+  String gameId = "";
+
+  FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final user = FirebaseAuth.instance.currentUser;
+
+  void updateBoard (boardArray){ //upon change of board in firestore
+    int index = 0;
+    for (int row = 0; row < 6; row++) {
+      for (int col = 0; col < 7; col++) {
+        board[row][col] = boardArray[index];
+        index++;
+      }
+    }
+  }
+            
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,12 +80,34 @@ class GamePageState extends State<GamePage> {
                   ],
                 ),
               ),
-            const SizedBox(
-                height:
-                    16),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: resetGame,
               child: const Text('Reset Game'),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: SizedBox(
+                    width: 200,
+                    child: TextField(
+                      keyboardType: TextInputType.visiblePassword,
+                      controller: gameIdController,
+                      onChanged: (value) {
+                        setState(() {
+                          gameId = value;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: createNewGame,
+                  child: const Text('Create New Game'),
+                ),
+              ],
             ),
           ],
         ),
@@ -75,8 +115,35 @@ class GamePageState extends State<GamePage> {
     );
   }
 
-  void makeMove(int col) {
-    //check if correct player is making a move
+  void createNewGame() async {
+    if (gameId != "") {
+      final gameSnapshot = await firestore.collection('Games').doc(gameId).get();
+      if (gameSnapshot.exists) {
+        List<String> playerIds = List<String>.from(gameSnapshot.get('player_ids'));
+        if(playerIds.length == 1 && playerIds[0] != user!.uid){
+          //check if seat available before adding (empty for testing purposes)
+        }
+        playerIds.add(user!.uid);
+        await gameSnapshot.reference.update({
+          'player_ids': playerIds,
+        });
+      }
+      else {
+        List<int> boardArray = board.expand((row) => row).toList();
+        final user = FirebaseAuth.instance.currentUser;
+        List<String> playerIds = [user!.uid];
+        await firestore.collection('Games').doc(gameId).set({
+          'winner': null,
+          'game_state': boardArray,
+          'player_ids': playerIds,
+          'player_turn': user.uid,
+        });
+      }
+    }
+  }
+
+  void makeMove(int col) async {
+    //check if correct player on firestore is making a move first
     if (gameOver) {
       return;
     }
@@ -84,20 +151,29 @@ class GamePageState extends State<GamePage> {
       if (board[row][col] == 0) {
         setState(() {
           board[row][col] = currentPlayer;
-          //update firestore board as well
+        });
+        List<int> boardArray = board.expand((row) => row).toList();
+        await firestore.collection('Games').doc(gameId).update({
+          'game_state': boardArray,
         });
 
         if (checkForWin(row, col)) {
           setState(() {
             message = 'Player $currentPlayer wins!';
-            //update both players ratings
+            //update both players ratings in firestore
+          });
+          await firestore.collection('Games').doc(gameId).update({
+            'winner': user!.uid,
           });
           gameOver = true;
           return;
         } else if (checkForDraw()) {
           setState(() {
             message = "It's a draw";
-            //update both players ratings
+            //update both players ratings in firestore
+          });
+          await firestore.collection('Games').doc(gameId).update({
+            'winner': "draw",
           });
           gameOver = true;
           return;
@@ -107,13 +183,16 @@ class GamePageState extends State<GamePage> {
           currentPlayer = 2;
           setState(() {
             message = "Player 2's turn";
+            //update player turn in firestore
           });
         } else if (currentPlayer == 2) {
           currentPlayer = 1;
           setState(() {
             message = "Player 1's turn";
+            //update player turn in firestore
           });
         }
+        
         return;
       }
     }
