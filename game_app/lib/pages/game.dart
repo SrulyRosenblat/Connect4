@@ -130,7 +130,7 @@ class GamePageState extends State<GamePage> {
       }
     }
 
-    // Check vertically
+    // Check vertically 
     for (int r = 0; r < 3; r++) {
       if (board[r][col] == currentPlayer &&
           board[r][col] == board[r + 1][col] &&
