@@ -10,11 +10,9 @@ class GamePage extends StatefulWidget {
 }
 
 class GamePageState extends State<GamePage> {
-  //when both users connect, push game board and users to firestore, and start allowing moves
   List<List<int>> board = List.generate(6, (i) => List.filled(7, 0));
-  int currentPlayer = 1;
   bool gameOver = false;
-  String message = "Player 1's turn";
+  String message = "No game selected";
 
   final TextEditingController gameIdController = TextEditingController();
   String gameId = "";
@@ -22,7 +20,7 @@ class GamePageState extends State<GamePage> {
   FirebaseFirestore firestore = FirebaseFirestore.instance;
   final user = FirebaseAuth.instance.currentUser;
 
-  void updateBoard (boardArray){ //upon change of board in firestore
+  void updateBoard (boardArray){
     int index = 0;
     for (int row = 0; row < 6; row++) {
       for (int col = 0; col < 7; col++) {
@@ -31,104 +29,124 @@ class GamePageState extends State<GamePage> {
       }
     }
   }
-            
+
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Connect 4',
-          style: TextStyle(fontSize: 48.0),
-        ),
-        centerTitle: true,
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text(
+        'Connect 4',
+        style: TextStyle(fontSize: 48.0),
       ),
-      body: Center(
-        child: Column(
-          children: <Widget>[
-            const Text(
-                'Connect 4 vertically, horizontally, or diagonally to win'),
-            Text(message),
-            for (int row = 0; row < 6; row++)
-              Center(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (int col = 0; col < 7; col++)
-                      GestureDetector(
-                        onTap: () {
-                          makeMove(col);
-                        },
-                        child: Container(
-                          width: 50,
-                          height: 50,
-                          color: Colors.blue,
-                          child: Center(
-                            child: Text(
-                              board[row][col].toString(),
-                              style: TextStyle(
-                                color: board[row][col] == 0
-                                    ? Colors.black
-                                    : board[row][col] == 1
-                                        ? Colors.red
-                                        : Colors.yellow,
+      centerTitle: true,
+    ),
+    body: Center(
+      child: Column(
+        children: <Widget>[
+          const Text(
+              'Connect 4 vertically, horizontally, or diagonally to win'),
+          if (gameId != "")
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection('Games').doc(gameId).snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                } else if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return const Text('Error: Game not found');
+                } else {
+                  Map<String, dynamic> gameData = snapshot.data!.data() as Map<String, dynamic>;
+                  List<int> boardArray = List<int>.from(gameData['game_state']);
+                  updateBoard(boardArray);
+                  message = "${gameData['player_turn']}'s turn";
+                  if (gameData['winner'] == "draw") {
+                    message = "It's a draw";
+                  }
+                  else if (gameData['winner'] != null) {
+                    message = 'Player ${gameData['winner']} wins!';
+                  }
+                    return Column(children: [
+                      Text(message),
+                      ...List.generate(
+                        6,
+                        (row) => Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            7,
+                            (col) => GestureDetector(
+                              onTap: () {
+                                makeMove(col);
+                              },
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                color: Colors.blue,
+                                child: Center(
+                                  child: Text(
+                                    board[row][col].toString(),
+                                    style: TextStyle(
+                                      color: board[row][col] == 0
+                                          ? Colors.black
+                                          : board[row][col] == 1
+                                              ? Colors.red
+                                              : Colors.yellow,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: resetGame,
-              child: const Text('Reset Game'),
+                    ]);
+                  }
+              },
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: SizedBox(
-                    width: 200,
-                    child: TextField(
-                      keyboardType: TextInputType.visiblePassword,
-                      controller: gameIdController,
-                      onChanged: (value) {
-                        setState(() {
-                          gameId = value;
-                        });
-                      },
-                    ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: SizedBox(
+                  width: 200,
+                  child: TextField(
+                    keyboardType: TextInputType.visiblePassword,
+                    controller: gameIdController,
+                    onChanged: (value) {
+                      setState(() {
+                        gameId = value;
+                      });
+                    },
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: createNewGame,
-                  child: const Text('Create New Game'),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              ElevatedButton(
+                onPressed: joinGame,
+                child: const Text('Join Game'),
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  void createNewGame() async {
+
+  void joinGame() async {
     if (gameId != "") {
       final gameSnapshot = await firestore.collection('Games').doc(gameId).get();
       if (gameSnapshot.exists) {
         List<String> playerIds = List<String>.from(gameSnapshot.get('player_ids'));
         if(playerIds.length == 1 && playerIds[0] != user!.uid){
-          //check if seat available before adding (empty for testing purposes)
+          playerIds.add(user!.uid);
+          await gameSnapshot.reference.update({
+            'player_ids': playerIds,
+          });
         }
-        playerIds.add(user!.uid);
-        await gameSnapshot.reference.update({
-          'player_ids': playerIds,
-        });
       }
       else {
+        board = List.generate(6, (i) => List.filled(7, 0));
         List<int> boardArray = board.expand((row) => row).toList();
         final user = FirebaseAuth.instance.currentUser;
         List<String> playerIds = [user!.uid];
@@ -143,8 +161,29 @@ class GamePageState extends State<GamePage> {
   }
 
   void makeMove(int col) async {
-    //check if correct player on firestore is making a move first
-    if (gameOver) {
+    int currentPlayer = 0;
+    final gameSnapshot = await firestore.collection('Games').doc(gameId).get();
+    if (gameSnapshot.exists) {
+      if (gameSnapshot.get('winner') != null) {
+        return;
+      }
+      if (List<String>.from(gameSnapshot.get('player_ids'))[0].length == 1) {
+        return;
+      }
+      String currentTurn = gameSnapshot.get('player_turn');
+      if (currentTurn != user!.uid){
+        return;
+      }
+      else{
+        if (List<String>.from(gameSnapshot.get('player_ids'))[0] == user!.uid) {
+          currentPlayer = 1;
+        }
+        else {
+          currentPlayer = 2;
+        }
+      }
+    }
+    else {
       return;
     }
     for (int row = 5; row >= 0; row--) {
@@ -157,39 +196,31 @@ class GamePageState extends State<GamePage> {
           'game_state': boardArray,
         });
 
-        if (checkForWin(row, col)) {
-          setState(() {
-            message = 'Player $currentPlayer wins!';
-            //update both players ratings in firestore
-          });
+        if (checkForWin(row, col, currentPlayer)) {
           await firestore.collection('Games').doc(gameId).update({
             'winner': user!.uid,
           });
           gameOver = true;
+          //update player ratings
           return;
         } else if (checkForDraw()) {
-          setState(() {
-            message = "It's a draw";
-            //update both players ratings in firestore
-          });
           await firestore.collection('Games').doc(gameId).update({
             'winner': "draw",
           });
           gameOver = true;
+          //update player ratings
           return;
         }
 
         if (currentPlayer == 1) {
-          currentPlayer = 2;
-          setState(() {
-            message = "Player 2's turn";
-            //update player turn in firestore
+          String player2 = List<String>.from(gameSnapshot.get('player_ids'))[1];
+          await firestore.collection('Games').doc(gameId).update({
+            'player_turn': player2,
           });
         } else if (currentPlayer == 2) {
-          currentPlayer = 1;
-          setState(() {
-            message = "Player 1's turn";
-            //update player turn in firestore
+          String player1 = List<String>.from(gameSnapshot.get('player_ids'))[0];
+          await firestore.collection('Games').doc(gameId).update({
+            'player_turn': player1,
           });
         }
         
@@ -198,7 +229,7 @@ class GamePageState extends State<GamePage> {
     }
   }
 
-  bool checkForWin(int row, int col) {
+  bool checkForWin(int row, int col, int currentPlayer) {
     // Check horizontally
     for (int c = 0; c < 4; c++) {
       if (board[row][c] == currentPlayer &&
@@ -251,15 +282,5 @@ class GamePageState extends State<GamePage> {
       }
     }
     return true;
-  }
-
-  void resetGame() {
-    //will need to await both players
-    gameOver = false;
-    setState(() {
-      board = List.generate(6, (i) => List.filled(7, 0));
-      currentPlayer = 1;
-      message = "Player 1's turn";
-    });
   }
 }

@@ -102,7 +102,6 @@ class _MyHomePageState extends State<MyHomePage> {
     switch (_selectedIndex) {
       case 0:
         selectedPage = GamePage();
-        selectedPage = const GamePage();
         break;
       case 1:
         selectedPage = const ChatPage();
