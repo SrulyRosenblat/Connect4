@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
-  
+
   @override
   GamePageState createState() => GamePageState();
 }
@@ -20,7 +20,7 @@ class GamePageState extends State<GamePage> {
   FirebaseFirestore firestore = FirebaseFirestore.instance;
   final user = FirebaseAuth.instance.currentUser;
 
-  void updateBoard (boardArray){
+  void updateBoard(boardArray) {
     int index = 0;
     for (int row = 0; row < 6; row++) {
       for (int col = 0; col < 7; col++) {
@@ -31,39 +31,43 @@ class GamePageState extends State<GamePage> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text(
-        'Connect 4',
-        style: TextStyle(fontSize: 48.0),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Connect 4',
+          style: TextStyle(fontSize: 48.0),
+        ),
+        centerTitle: true,
       ),
-      centerTitle: true,
-    ),
-    body: Center(
-      child: Column(
-        children: <Widget>[
-          const Text(
-              'Connect 4 vertically, horizontally, or diagonally to win'),
-          if (gameId != "")
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('Games').doc(gameId).snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
-                } else if (!snapshot.hasData || !snapshot.data!.exists) {
-                  return const Text('Error: Game not found');
-                } else {
-                  Map<String, dynamic> gameData = snapshot.data!.data() as Map<String, dynamic>;
-                  List<int> boardArray = List<int>.from(gameData['game_state']);
-                  updateBoard(boardArray);
-                  message = "${gameData['player_turn']}'s turn";
-                  if (gameData['winner'] == "draw") {
-                    message = "It's a draw";
-                  }
-                  else if (gameData['winner'] != null) {
-                    message = 'Player ${gameData['winner']} wins!';
-                  }
+      body: Center(
+        child: Column(
+          children: <Widget>[
+            const Text(
+                'Connect 4 vertically, horizontally, or diagonally to win'),
+            if (gameId != "")
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('Games')
+                    .doc(gameId)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else if (!snapshot.hasData || !snapshot.data!.exists) {
+                    return const Text('Error: Game not found');
+                  } else {
+                    Map<String, dynamic> gameData =
+                        snapshot.data!.data() as Map<String, dynamic>;
+                    List<int> boardArray =
+                        List<int>.from(gameData['game_state']);
+                    updateBoard(boardArray);
+                    message = "${gameData['player_turn']}'s turn";
+                    if (gameData['winner'] == "draw") {
+                      message = "It's a draw";
+                    } else if (gameData['winner'] != null) {
+                      message = 'Player ${gameData['winner']} wins!';
+                    }
                     return Column(children: [
                       Text(message),
                       ...List.generate(
@@ -82,16 +86,24 @@ Widget build(BuildContext context) {
                                 height: 50,
                                 color: Colors.blue,
                                 child: Center(
-                                  child: Text(
-                                    board[row][col].toString(),
-                                    style: TextStyle(
-                                      color: board[row][col] == 0
-                                          ? Colors.black
-                                          : board[row][col] == 1
-                                              ? Colors.red
-                                              : Colors.yellow,
-                                    ),
-                                  ),
+                                  child: Image(
+                                      image: AssetImage(
+                                    board[row][col] == 0
+                                        ? 'assets/Connect_4_empty.png'
+                                        : board[row][col] == 1
+                                            ? 'assets/Connect_4_orange.png'
+                                            : 'assets/Connect_4_blue.png',
+                                  )),
+                                  // child: Text(
+                                  //   board[row][col].toString(),
+                                  //   style: TextStyle(
+                                  //     color: board[row][col] == 0
+                                  //         ? Colors.black
+                                  //         : board[row][col] == 1
+                                  //             ? Colors.red
+                                  //             : Colors.yellow,
+                                  //   ),
+                                  // ),
                                 ),
                               ),
                             ),
@@ -100,52 +112,52 @@ Widget build(BuildContext context) {
                       ),
                     ]);
                   }
-              },
-            ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: SizedBox(
-                  width: 200,
-                  child: TextField(
-                    keyboardType: TextInputType.visiblePassword,
-                    controller: gameIdController,
-                    onChanged: (value) {
-                      setState(() {
-                        gameId = value;
-                      });
-                    },
+                },
+              ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: SizedBox(
+                    width: 200,
+                    child: TextField(
+                      keyboardType: TextInputType.visiblePassword,
+                      controller: gameIdController,
+                      onChanged: (value) {
+                        setState(() {
+                          gameId = value;
+                        });
+                      },
+                    ),
                   ),
                 ),
-              ),
-              ElevatedButton(
-                onPressed: joinGame,
-                child: const Text('Join Game'),
-              ),
-            ],
-          ),
-        ],
+                ElevatedButton(
+                  onPressed: joinGame,
+                  child: const Text('Join Game'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   void joinGame() async {
     if (gameId != "") {
-      final gameSnapshot = await firestore.collection('Games').doc(gameId).get();
+      final gameSnapshot =
+          await firestore.collection('Games').doc(gameId).get();
       if (gameSnapshot.exists) {
-        List<String> playerIds = List<String>.from(gameSnapshot.get('player_ids'));
-        if(playerIds.length == 1 && playerIds[0] != user!.uid){
+        List<String> playerIds =
+            List<String>.from(gameSnapshot.get('player_ids'));
+        if (playerIds.length == 1 && playerIds[0] != user!.uid) {
           playerIds.add(user!.uid);
           await gameSnapshot.reference.update({
             'player_ids': playerIds,
           });
         }
-      }
-      else {
+      } else {
         board = List.generate(6, (i) => List.filled(7, 0));
         List<int> boardArray = board.expand((row) => row).toList();
         final user = FirebaseAuth.instance.currentUser;
@@ -171,19 +183,16 @@ Widget build(BuildContext context) {
         return;
       }
       String currentTurn = gameSnapshot.get('player_turn');
-      if (currentTurn != user!.uid){
+      if (currentTurn != user!.uid) {
         return;
-      }
-      else{
+      } else {
         if (List<String>.from(gameSnapshot.get('player_ids'))[0] == user!.uid) {
           currentPlayer = 1;
-        }
-        else {
+        } else {
           currentPlayer = 2;
         }
       }
-    }
-    else {
+    } else {
       return;
     }
     for (int row = 5; row >= 0; row--) {
@@ -223,7 +232,7 @@ Widget build(BuildContext context) {
             'player_turn': player1,
           });
         }
-        
+
         return;
       }
     }
@@ -240,7 +249,7 @@ Widget build(BuildContext context) {
       }
     }
 
-    // Check vertically 
+    // Check vertically
     for (int r = 0; r < 3; r++) {
       if (board[r][col] == currentPlayer &&
           board[r][col] == board[r + 1][col] &&
