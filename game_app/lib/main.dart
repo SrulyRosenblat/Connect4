@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:game_app/pages/Profile.dart';
 import 'package:game_app/pages/SignIn.dart';
 import 'package:game_app/pages/game.dart';
 import 'package:game_app/pages/chat.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:game_app/pages/match_making.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -31,21 +33,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -57,15 +44,6 @@ class MyApp extends StatelessWidget {
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
@@ -74,83 +52,209 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  Map<String, dynamic>? _userDoc;
+
   changeDestination(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
+  setUpDoc(id) async {
+    Map<String, dynamic>? doc =
+        (await FirebaseFirestore.instance.collection('users').doc(id).get())
+            .data();
+    setState(() {
+      _userDoc = doc;
+    });
+  }
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    Widget selectedPage;
-    bool signedIn = false;
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      if (user == null) {
-        signedIn = false;
-        print('User is currently signed out!');
-      } else {
-        signedIn = true;
-        print('User is signed in!');
-      }
-    });
-    switch (_selectedIndex) {
-      case 0:
-        selectedPage = GamePage();
-        break;
-      case 1:
-        selectedPage = const ChatPage();
-        break;
-      case 2:
-        selectedPage = StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
-          builder: (context, snapshot) {
-            // User is not signed in
-            if (!snapshot.hasData) {
-              return SignIn();
-            }
+    return StreamBuilder(
+        stream: _auth.authStateChanges(),
+        builder: (BuildContext context, userSnapshot) {
+          if (userSnapshot.data == null) {
+            return const SignIn();
+          }
+          var currentUser = userSnapshot.data;
+          Stream<DocumentSnapshot> userDocumentStream =
+              _firestore.collection('users').doc(currentUser!.uid).snapshots();
+          return StreamBuilder<DocumentSnapshot>(
+            stream: userDocumentStream,
+            builder: (BuildContext context,
+                AsyncSnapshot<DocumentSnapshot> snapshot) {
+              if (!snapshot.hasData) {
+                return const CircularProgressIndicator();
+              } else {
+                Map<String, dynamic>? userDoc =
+                    snapshot.data?.data() as Map<String, dynamic>?;
+                print("updating");
+                final Widget page;
+                switch (_selectedIndex) {
+                  case 0:
+                    if (userDoc == null) {
+                      page = const CircularProgressIndicator();
+                    } else if (userDoc['currentGameID'] != null &&
+                        userDoc['inGame']) {
+                      page = GamePage(gameId: userDoc['currentGameID']);
+                    } else {
+                      page = MatchMaking(
+                        userDoc: userDoc,
+                      );
+                    }
+                  case 1:
+                    page = const ChatPage();
+                  case 2:
+                    page = Profile();
+                  default:
+                    return const Text("ERROR");
+                }
+                return Scaffold(
+                    body: Row(
+                  children: [
+                    NavigationRail(
+                      destinations: const [
+                        NavigationRailDestination(
+                          icon: Icon(Icons.games_outlined),
+                          selectedIcon: Icon(Icons.games),
+                          label: Text('Game'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.chat_bubble_outline),
+                          selectedIcon: Icon(Icons.chat_bubble),
+                          label: Text('Chat'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.person_outline),
+                          selectedIcon: Icon(Icons.person),
+                          label: Text('profile'),
+                        ),
+                      ],
+                      selectedIndex: _selectedIndex,
+                      useIndicator: true,
+                      elevation: 4,
+                      onDestinationSelected: changeDestination,
+                    ),
+                    Expanded(child: page)
+                  ],
+                ));
+              }
+            },
+          );
 
-            // Render your application if authenticated
-            return Profile();
-          },
-        );
-        break;
-      default:
-        selectedPage = const Text("ERROR");
-    }
-    return Scaffold(
-        body: Row(
-      children: [
-        NavigationRail(
-          destinations: const [
-            NavigationRailDestination(
-              icon: Icon(Icons.games_outlined),
-              selectedIcon: Icon(Icons.games),
-              label: Text('Game'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.chat_bubble_outline),
-              selectedIcon: Icon(Icons.chat_bubble),
-              label: Text('Chat'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: Text('profile'),
-            ),
-          ],
-          selectedIndex: _selectedIndex,
-          useIndicator: true,
-          elevation: 4,
-          onDestinationSelected: changeDestination,
-        ),
-        Expanded(child: selectedPage)
-      ],
-    ));
+          // if (!snapshot.hasData) {
+          //   return const CircularProgressIndicator();
+          // } else {
+          //   DocumentSnapshot userDoc = snapshot.data!;
+          //   bool inGame = userDoc['inGame'];
+          //   final Widget page;
+          //   switch (_selectedIndex) {
+          //     case 0:
+          //       if (inGame) {
+          //         page = const GamePage();
+          //       } else {
+          //         page = const MatchMaking();
+          //       }
+          //     case 1:
+          //       page = const ChatPage();
+          //     case 2:
+          //       page = Profile();
+          //     default:
+          //       return const Text("ERROR");
+          //   }
+          //   return Scaffold(
+          //       body: Row(
+          //     children: [
+          //       NavigationRail(
+          //         destinations: const [
+          //           NavigationRailDestination(
+          //             icon: Icon(Icons.games_outlined),
+          //             selectedIcon: Icon(Icons.games),
+          //             label: Text('Game'),
+          //           ),
+          //           NavigationRailDestination(
+          //             icon: Icon(Icons.chat_bubble_outline),
+          //             selectedIcon: Icon(Icons.chat_bubble),
+          //             label: Text('Chat'),
+          //           ),
+          //           NavigationRailDestination(
+          //             icon: Icon(Icons.person_outline),
+          //             selectedIcon: Icon(Icons.person),
+          //             label: Text('profile'),
+          //           ),
+          //         ],
+          //         selectedIndex: _selectedIndex,
+          //         useIndicator: true,
+          //         elevation: 4,
+          //         onDestinationSelected: changeDestination,
+          //       ),
+          //       Expanded(child: page)
+          //     ],
+          //   ));
+          // }
+        });
+
+    // switch (_selectedIndex) {
+    //   case 0:
+    //     if (_userDoc == null) {
+    //       selectedPage = Placeholder();
+    //       break;
+    //     }
+    //     bool inGame = _userDoc!['inGame'];
+    //     selectedPage = inGame ? const GamePage() : const MatchMaking();
+    //     break;
+    //   case 1:
+    //     selectedPage = const ChatPage();
+    //     break;
+    //   case 2:
+    //     selectedPage = StreamBuilder<User?>(
+    //       stream: FirebaseAuth.instance.authStateChanges(),
+    //       builder: (context, snapshot) {
+    //         // User is not signed in
+    //         if (!snapshot.hasData) {
+    //           return SignIn();
+    //         }
+
+    //         // Render your application if authenticated
+    //         return Profile();
+    //       },
+    //     );
+    //     break;
+    //   default:
+    //     selectedPage = const Text("ERROR");
+    // }
+    // return Scaffold(
+    //     body: Row(
+    //   children: [
+    //     NavigationRail(
+    //       destinations: const [
+    //         NavigationRailDestination(
+    //           icon: Icon(Icons.games_outlined),
+    //           selectedIcon: Icon(Icons.games),
+    //           label: Text('Game'),
+    //         ),
+    //         NavigationRailDestination(
+    //           icon: Icon(Icons.chat_bubble_outline),
+    //           selectedIcon: Icon(Icons.chat_bubble),
+    //           label: Text('Chat'),
+    //         ),
+    //         NavigationRailDestination(
+    //           icon: Icon(Icons.person_outline),
+    //           selectedIcon: Icon(Icons.person),
+    //           label: Text('profile'),
+    //         ),
+    //       ],
+    //       selectedIndex: _selectedIndex,
+    //       useIndicator: true,
+    //       elevation: 4,
+    //       onDestinationSelected: changeDestination,
+    //     ),
+    //     Expanded(child: selectedPage)
+    //   ],
+    // ));
   }
 }
