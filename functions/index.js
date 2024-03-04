@@ -56,12 +56,13 @@ exports.matchmaking = functions.firestore.document("users/{userID}").onUpdate(as
             const p1Num = Math.floor(Math.random() * (2));
             const p2Num = p1Num === 0 ? 1 : 0;
             console.log("player"+p1Num + ": " + players[p1Num] +" player"+p2Num + ": " + players[p2Num]);
-            const game  = await firestore.collection("games").add({
+            const game  = await firestore.collection("Games").add({
                 player1: players[p1Num],
                 player2: players[p2Num],
+                player_ids: [players[p1Num],players[p2Num]],
                 createdAt: new Date(),
-                turn: players[p1Num],
-                board: board,
+                player_turn: players[p1Num],
+                game_state: board,
                 winner: null,
             })
             console.log("game created");
@@ -89,7 +90,7 @@ exports.matchmaking = functions.firestore.document("users/{userID}").onUpdate(as
     return null;
 });
 
-exports.updateScores = functions.firestore.document("games/{gameID}").onUpdate(async (change, context) => {
+exports.updateScores = functions.firestore.document("Games/{gameID}").onUpdate(async (change, context) => {
     const previous = change.before.data();
     const current = change.after.data();
     p1ID = current.player1;
