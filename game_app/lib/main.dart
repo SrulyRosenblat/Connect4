@@ -98,8 +98,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   case 0:
                     if (userDoc == null) {
                       page = const CircularProgressIndicator();
-                    } else if (userDoc['currentGameID'] != null &&
-                        userDoc['inGame']) {
+                    } else if (userDoc['currentGameID'] != null) {
                       page = GamePage(gameId: userDoc['currentGameID']);
                     } else {
                       page = MatchMaking(

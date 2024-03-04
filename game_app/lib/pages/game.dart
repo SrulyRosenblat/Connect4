@@ -110,11 +110,27 @@ class GamePageState extends State<GamePage> {
                           ),
                         ),
                       ),
+                      Column(
+                        children: [
+                          gameData['winner'] != null
+                              ? ElevatedButton(
+                                  onPressed: () async {
+                                    await firestore
+                                        .collection('users')
+                                        .doc(user!.uid)
+                                        .update({
+                                      'waiting': true,
+                                    });
+                                  },
+                                  child: const Text('Play Again'),
+                                )
+                              : Container(),
+                        ],
+                      )
                     ]);
                   }
                 },
               ),
-            Text("working ")
           ],
         ),
       ),
